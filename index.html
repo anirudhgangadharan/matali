@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matali — HMM Hospital Routing Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e17;--surface:#111827;--surface2:#1a2234;--border:#1e293b;
+  --text:#e2e8f0;--text2:#94a3b8;--accent:#10b981;--red:#ef4444;
+  --yellow:#f59e0b;--green:#10b981;--blue:#3b82f6;--purple:#8b5cf6;
+  --mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+.header{padding:24px 32px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.header h1{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.header h1 span{color:var(--accent)}
+.header .subtitle{color:var(--text2);font-size:13px;flex:1}
+.header .eq{font-family:var(--mono);font-size:12px;color:var(--yellow);background:var(--surface2);padding:6px 14px;border-radius:6px;border:1px solid var(--border);white-space:nowrap}
+
+.main{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 80px)}
+@media(max-width:900px){.main{grid-template-columns:1fr}}
+
+/* Control Panel */
+.controls{background:var(--surface);border-right:1px solid var(--border);padding:24px;display:flex;flex-direction:column;gap:20px;overflow-y:auto}
+.ctrl-section{display:flex;flex-direction:column;gap:8px}
+.ctrl-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);font-weight:700}
+.ctrl-select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:var(--sans);font-size:14px;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.ctrl-select:focus{outline:none;border-color:var(--accent)}
+.slider-row{display:flex;flex-direction:column;gap:6px}
+.slider-header{display:flex;justify-content:space-between;align-items:center}
+.slider-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--accent)}
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;background:var(--surface2);border-radius:3px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:var(--accent);border-radius:50%;cursor:pointer}
+.lambda-display{font-family:var(--mono);font-size:13px;padding:8px 12px;background:var(--surface2);border-radius:6px;border-left:3px solid var(--yellow)}
+.lambda-display b{color:var(--yellow)}
+
+/* Live Equation */
+.live-eq{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.8}
+.live-eq .label{color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:block}
+.live-eq .winner-name{color:var(--accent);font-weight:700;font-size:14px}
+
+/* Dispatch counters */
+.dispatch-grid{display:flex;flex-direction:column;gap:4px}
+.dispatch-row{display:flex;align-items:center;gap:8px;font-size:11px}
+.dispatch-row .name{flex:1;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dispatch-row .count{font-family:var(--mono);font-weight:700;color:var(--accent);min-width:20px;text-align:right}
+.dispatch-row .bar{height:4px;background:var(--accent);border-radius:2px;transition:width 0.3s}
+.dispatch-bar-bg{width:60px;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
+
+/* Results Area */
+.results{padding:24px;display:flex;flex-direction:column;gap:20px;overflow-y:auto}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1100px){.result-grid{grid-template-columns:1fr}}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);font-weight:700;margin-bottom:12px}
+
+/* Hospital Table */
+.hosp-table{width:100%;border-collapse:collapse;font-size:12px}
+.hosp-table th{text-align:left;padding:6px 8px;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:700}
+.hosp-table td{padding:8px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px}
+.hosp-table tr.winner{background:rgba(16,185,129,0.08)}
+.hosp-table tr.winner td:first-child{color:var(--accent);font-weight:700}
+.hosp-table tr.negative td.util-cell{color:var(--red)}
+.hosp-table tr.winner td.util-cell{color:var(--accent);font-weight:700}
+.tier-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;margin-left:4px}
+.tier-1{background:rgba(139,92,246,0.15);color:var(--purple)}
+.tier-2{background:rgba(59,130,246,0.15);color:var(--blue)}
+.tier-3{background:rgba(239,68,68,0.15);color:var(--red)}
+
+.chart-container{position:relative;height:220px}
+.chart-container-tall{position:relative;height:280px}
+
+/* State bars */
+.state-bars{display:flex;flex-direction:column;gap:8px}
+.state-bar-row{display:flex;align-items:center;gap:8px}
+.state-bar-label{font-size:11px;width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)}
+.state-bar-track{flex:1;height:20px;display:flex;border-radius:4px;overflow:hidden}
+.state-bar-seg{transition:width 0.4s ease}
+.state-bar-vals{font-family:var(--mono);font-size:10px;color:var(--text2);min-width:120px;text-align:right}
+
+/* Severity indicator */
+.sev-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.sev-red{background:var(--red)}.sev-yellow{background:var(--yellow)}.sev-green{background:var(--green)}
+
+.full-width{grid-column:1/-1}
+
+/* Footer */
+.footer{padding:12px 32px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Mata<span>li</span></h1>
+  <div class="subtitle">Hidden Markov Model Hospital Routing Simulator — Interactive Demo</div>
+  <div class="eq">U<sub>i</sub> = P(Available) × C<sub>i</sub> − λ × ETA<sub>i</sub></div>
+</div>
+
+<div class="main">
+  <div class="controls">
+    <div class="ctrl-section">
+      <div class="ctrl-label">Emergency Call</div>
+      <select id="injury" class="ctrl-select">
+        <option value="head">🧠 Head Injury</option>
+        <option value="chest">🫁 Chest Trauma</option>
+        <option value="limb">🦴 Limb Fracture</option>
+        <option value="cardiac">❤️ Cardiac (MI)</option>
+      </select>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-label">Triage Severity</div>
+      <select id="severity" class="ctrl-select">
+        <option value="red">🔴 RED — Critical / Hemorrhage</option>
+        <option value="yellow">🟡 YELLOW — Urgent</option>
+        <option value="green">🟢 GREEN — Stable</option>
+      </select>
+      <div class="lambda-display" id="lambdaDisplay">λ (severity weight) = <b>0.040</b></div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="ctrl-label">Dispatch Load (δ) — GIMS</span>
+          <span class="slider-val" id="d0val">0</span>
+        </div>
+        <input type="range" id="d0" min="0" max="10" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="ctrl-label">Dispatch Load (δ) — SDM Dharwad</span>
+          <span class="slider-val" id="d1val">0</span>
+        </div>
+        <input type="range" id="d1" min="0" max="10" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="ctrl-label">Dispatch Load (δ) — District Hosp</span>
+          <span class="slider-val" id="d2val">0</span>
+        </div>
+        <input type="range" id="d2" min="0" max="10" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="ctrl-label">Dispatch Load (δ) — Private Trauma</span>
+          <span class="slider-val" id="d3val">0</span>
+        </div>
+        <input type="range" id="d3" min="0" max="10" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="ctrl-label">Dispatch Load (δ) — PHC Lakkundi</span>
+          <span class="slider-val" id="d4val">0</span>
+        </div>
+        <input type="range" id="d4" min="0" max="10" value="0">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="live-eq">
+        <span class="label">Routing Decision</span>
+        <div id="liveEq">Select parameters above...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="results">
+    <div class="result-grid">
+      <!-- Hospital Ranking Table -->
+      <div class="card full-width">
+        <div class="card-title">Hospital Ranking — Optimal Route</div>
+        <table class="hosp-table">
+          <thead>
+            <tr>
+              <th>Hospital</th>
+              <th>Dist (km)</th>
+              <th>ETA (min)</th>
+              <th>P(Avail)</th>
+              <th>Capability</th>
+              <th>λ×ETA</th>
+              <th>Utility (U<sub>i</sub>)</th>
+            </tr>
+          </thead>
+          <tbody id="hospTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Utility Bar Chart -->
+      <div class="card">
+        <div class="card-title">Utility Scores — Why This Hospital Wins</div>
+        <div class="chart-container-tall"><canvas id="utilChart"></canvas></div>
+      </div>
+
+      <!-- State Vector Bars -->
+      <div class="card">
+        <div class="card-title">Predicted State at Arrival — P(Available / Saturated / Diverting)</div>
+        <div class="state-bars" id="stateBars"></div>
+      </div>
+
+      <!-- Decay Curve -->
+      <div class="card">
+        <div class="card-title">a₁₂ Transition Probability vs Dispatch Load</div>
+        <div class="chart-container-tall"><canvas id="decayChart"></canvas></div>
+      </div>
+
+      <!-- Forward Projection -->
+      <div class="card">
+        <div class="card-title">P(Available) vs ETA — Confidence Degrades With Distance</div>
+        <div class="chart-container-tall"><canvas id="projChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Matali — AFMC Illuminati Hackathon 2026 | Problem Statement B</span>
+  <span>Anirudh | GIMS, Gadag | 3rd MBBS</span>
+</div>
+
+<script>
+// ============================================================
+// HOSPITAL DATA — GADAG DISTRICT
+// ============================================================
+const HOSPITALS = [
+  {
+    name: "GIMS Medical College", short: "GIMS", lat: 15.4307, lng: 75.6370,
+    tier: 1, beds: 150, a12Base: 0.05, k: 1/150,
+    caps: {neurosurgery:1,general_surgery:1,orthopedics:1,blood_bank:1,ct_scan:1,icu:1,thoracic_surgery:1,cath_lab:0},
+    stateVec: [0.75, 0.18, 0.07], color: '#8b5cf6'
+  },
+  {
+    name: "SDM Medical Dharwad", short: "SDM", lat: 15.4589, lng: 75.0078,
+    tier: 1, beds: 200, a12Base: 0.05, k: 1/200,
+    caps: {neurosurgery:1,general_surgery:1,orthopedics:1,blood_bank:1,ct_scan:1,icu:1,thoracic_surgery:1,cath_lab:1},
+    stateVec: [0.70, 0.20, 0.10], color: '#3b82f6'
+  },
+  {
+    name: "District Hospital Gadag", short: "DH Gadag", lat: 15.4180, lng: 75.6290,
+    tier: 2, beds: 60, a12Base: 0.08, k: 1/60,
+    caps: {neurosurgery:0,general_surgery:1,orthopedics:1,blood_bank:1,ct_scan:1,icu:1,thoracic_surgery:0,cath_lab:0},
+    stateVec: [0.80, 0.15, 0.05], color: '#f59e0b'
+  },
+  {
+    name: "Private Trauma Center", short: "Pvt Trauma", lat: 15.4250, lng: 75.6400,
+    tier: 2, beds: 30, a12Base: 0.08, k: 1/30,
+    caps: {neurosurgery:0,general_surgery:1,orthopedics:1,blood_bank:1,ct_scan:0,icu:1,thoracic_surgery:0,cath_lab:0},
+    stateVec: [0.85, 0.10, 0.05], color: '#10b981'
+  },
+  {
+    name: "PHC Lakkundi", short: "PHC", lat: 15.3900, lng: 75.7100,
+    tier: 3, beds: 10, a12Base: 0.15, k: 1/10,
+    caps: {neurosurgery:0,general_surgery:0,orthopedics:0,blood_bank:0,ct_scan:0,icu:0,thoracic_surgery:0,cath_lab:0},
+    stateVec: [0.90, 0.08, 0.02], color: '#ef4444'
+  }
+];
+
+// Call origin: center of Gadag
+const CALL_LAT = 15.42, CALL_LNG = 75.635;
+
+// ============================================================
+// MATH — Identical to Python simulation
+// ============================================================
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371, toR = Math.PI / 180;
+  const dLat = (lat2-lat1)*toR, dLng = (lng2-lng1)*toR;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*toR)*Math.cos(lat2*toR)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function estimateEta(distKm) { return (distKm / 40) * 60; }
+
+function dynamicA12(a12Base, k, delta) {
+  // CORRECTED: always in [a12Base, 1]
+  return a12Base + (1 - a12Base) * (1 - Math.exp(-k * delta));
+}
+
+function buildTransitionMatrix(a12Base, k, delta) {
+  const a12 = dynamicA12(a12Base, k, delta);
+  const a13 = 0.005;
+  let a11 = Math.max(1 - a12 - a13, 0);
+  const a21 = 0.02;
+  let a23 = Math.min(0.03 + 0.02*delta, 0.3);
+  let a22 = Math.max(1 - a21 - a23, 0);
+  const a31 = 0.005, a32 = 0.03;
+  let a33 = Math.max(1 - a31 - a32, 0);
+  let A = [[a11,a12,a13],[a21,a22,a23],[a31,a32,a33]];
+  // Row normalize
+  for (let i=0;i<3;i++) {
+    const s = A[i][0]+A[i][1]+A[i][2];
+    if (s>0) { A[i][0]/=s; A[i][1]/=s; A[i][2]/=s; }
+  }
+  return A;
+}
+
+function matMul(A, B) {
+  const R = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i=0;i<3;i++) for (let j=0;j<3;j++) for (let k=0;k<3;k++) R[i][j]+=A[i][k]*B[k][j];
+  return R;
+}
+
+function matPow(A, n) {
+  n = Math.max(Math.round(n), 1);
+  let result = [[1,0,0],[0,1,0],[0,0,1]]; // identity
+  let base = A.map(r=>[...r]);
+  while (n > 0) {
+    if (n % 2 === 1) result = matMul(result, base);
+    base = matMul(base, base);
+    n = Math.floor(n / 2);
+  }
+  return result;
+}
+
+function forwardProject(stateVec, A, dt) {
+  const Ap = matPow(A, dt);
+  let proj = [0,0,0];
+  for (let j=0;j<3;j++) for (let i=0;i<3;i++) proj[j] += stateVec[i] * Ap[i][j];
+  // Clip and normalize
+  let s = 0;
+  for (let i=0;i<3;i++) { proj[i]=Math.max(proj[i],0); s+=proj[i]; }
+  if (s>0) for (let i=0;i<3;i++) proj[i]/=s;
+  return proj;
+}
+
+function capabilityScore(caps, injury) {
+  if (injury==='head') {
+    if (caps.neurosurgery && caps.ct_scan && caps.blood_bank) return 1.0;
+    if (caps.general_surgery && caps.blood_bank) return 0.4;
+    if (caps.general_surgery) return 0.1;
+    return 0.0;
+  }
+  if (injury==='chest') {
+    if (caps.thoracic_surgery && caps.blood_bank && caps.icu) return 1.0;
+    if (caps.general_surgery && caps.icu) return 0.5;
+    return 0.1;
+  }
+  if (injury==='limb') {
+    if (caps.orthopedics && caps.blood_bank) return 1.0;
+    if (caps.general_surgery) return 0.6;
+    return 0.2;
+  }
+  if (injury==='cardiac') {
+    if (caps.cath_lab && caps.icu) return 1.0;
+    if (caps.icu) return 0.4;
+    return 0.1;
+  }
+  return 0.5;
+}
+
+function severityLambda(sev) {
+  return {red:0.08, yellow:0.03, green:0.01}[sev];
+}
+
+// ============================================================
+// COMPUTE ALL
+// ============================================================
+
+function computeAll() {
+  const injury = document.getElementById('injury').value;
+  const severity = document.getElementById('severity').value;
+  const lam = severityLambda(severity);
+  const dispatches = [0,1,2,3,4].map(i => parseInt(document.getElementById('d'+i).value));
+
+  // Update slider displays
+  dispatches.forEach((d,i) => document.getElementById('d'+i+'val').textContent = d);
+
+  // Update lambda display
+  const sevColors = {red:'var(--red)',yellow:'var(--yellow)',green:'var(--green)'};
+  document.getElementById('lambdaDisplay').innerHTML =
+    `λ (severity weight) = <b style="color:${sevColors[severity]}">${lam.toFixed(3)}</b> — ${severity==='red'?'time penalty HIGH':severity==='yellow'?'time penalty MODERATE':'time penalty LOW'}`;
+
+  // Compute utility for each hospital
+  const results = HOSPITALS.map((h, idx) => {
+    const dist = haversine(CALL_LAT, CALL_LNG, h.lat, h.lng);
+    const eta = estimateEta(dist);
+    const delta = dispatches[idx];
+    const A = buildTransitionMatrix(h.a12Base, h.k, delta);
+    const proj = forwardProject([...h.stateVec], A, Math.round(eta));
+    const C = capabilityScore(h.caps, injury);
+    const U = proj[0] * C - lam * eta;
+    return { ...h, dist: dist.toFixed(1), eta: eta.toFixed(1), etaNum: eta,
+             pAvail: proj[0], pSat: proj[1], pDiv: proj[2],
+             cap: C, utility: U, delta };
+  });
+
+  results.sort((a,b) => b.utility - a.utility);
+  const winner = results[0];
+
+  // Update table
+  const tbody = document.getElementById('hospTableBody');
+  tbody.innerHTML = results.map((r,i) => {
+    const isWin = i===0;
+    const isNeg = r.utility < 0;
+    const tierClass = `tier-${r.tier}`;
+    return `<tr class="${isWin?'winner':''} ${isNeg&&!isWin?'negative':''}">
+      <td>${isWin?'✓ ':''}${r.short}<span class="tier-badge ${tierClass}">L${r.tier}</span></td>
+      <td>${r.dist}</td>
+      <td>${r.eta}</td>
+      <td>${r.pAvail.toFixed(3)}</td>
+      <td>${r.cap.toFixed(2)}</td>
+      <td>${(lam*r.etaNum).toFixed(3)}</td>
+      <td class="util-cell">${r.utility>=0?'+':''}${r.utility.toFixed(4)}</td>
+    </tr>`;
+  }).join('');
+
+  // Update live equation
+  document.getElementById('liveEq').innerHTML =
+    `<span class="winner-name">→ ${winner.name}</span><br>` +
+    `U = ${winner.pAvail.toFixed(3)} × ${winner.cap.toFixed(2)} − ${lam.toFixed(3)} × ${winner.eta}<br>` +
+    `U = <b>${winner.utility>=0?'+':''}${winner.utility.toFixed(4)}</b>`;
+
+  // Update charts
+  updateUtilChart(results, winner);
+  updateStateBars(results, winner);
+  updateDecayChart(dispatches);
+  updateProjChart(results, dispatches);
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+
+let utilChartInst, decayChartInst, projChartInst;
+
+function updateUtilChart(results, winner) {
+  const ctx = document.getElementById('utilChart');
+  const labels = results.map(r => r.short);
+  const data = results.map(r => r.utility);
+  const colors = results.map(r => r.name===winner.name ? '#10b981' : r.utility<0 ? '#ef4444' : '#475569');
+
+  if (utilChartInst) utilChartInst.destroy();
+  utilChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels, datasets: [{
+        data, backgroundColor: colors, borderRadius: 4, barThickness: 28
+      }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false},
+        tooltip:{callbacks:{label:c=>`U = ${c.raw>=0?'+':''}${c.raw.toFixed(4)}`}}
+      },
+      scales: {
+        x: { grid:{color:'#1e293b'}, ticks:{color:'#94a3b8',font:{family:'JetBrains Mono',size:11}} },
+        y: { grid:{display:false}, ticks:{color:'#e2e8f0',font:{family:'DM Sans',size:12}} }
+      }
+    }
+  });
+}
+
+function updateStateBars(results, winner) {
+  const container = document.getElementById('stateBars');
+  // Sort back by original order for consistency
+  const sorted = [...results].sort((a,b) => HOSPITALS.findIndex(h=>h.name===a.name) - HOSPITALS.findIndex(h=>h.name===b.name));
+  container.innerHTML = sorted.map(r => {
+    const wPct = v => (v*100).toFixed(1);
+    const isWin = r.name === winner.name;
+    return `<div class="state-bar-row" style="${isWin?'font-weight:700':''}">
+      <div class="state-bar-label">${isWin?'✓ ':''}${r.short}</div>
+      <div class="state-bar-track">
+        <div class="state-bar-seg" style="width:${wPct(r.pAvail)}%;background:#10b981"></div>
+        <div class="state-bar-seg" style="width:${wPct(r.pSat)}%;background:#f59e0b"></div>
+        <div class="state-bar-seg" style="width:${wPct(r.pDiv)}%;background:#ef4444"></div>
+      </div>
+      <div class="state-bar-vals">${wPct(r.pAvail)}% / ${wPct(r.pSat)}% / ${wPct(r.pDiv)}%</div>
+    </div>`;
+  }).join('');
+}
+
+function updateDecayChart(dispatches) {
+  const ctx = document.getElementById('decayChart');
+  const tiers = [
+    {label:'L1: Medical College', a12:0.02, k:1/150, color:'#8b5cf6', dIdx:0},
+    {label:'L2: District (60 beds)', a12:0.05, k:1/60, color:'#f59e0b', dIdx:2},
+    {label:'L3: PHC (10 beds)', a12:0.12, k:1/10, color:'#ef4444', dIdx:4}
+  ];
+  const xs = []; for(let d=0;d<=15;d+=0.5) xs.push(d);
+
+  const datasets = tiers.map(t => ({
+    label: t.label,
+    data: xs.map(d => ({x:d, y:dynamicA12(t.a12, t.k, d)})),
+    borderColor: t.color, backgroundColor: t.color+'20',
+    borderWidth: 2, pointRadius: 0, fill: false, tension: 0.3
+  }));
+
+  // Add vertical markers for current dispatch values
+  tiers.forEach((t,i) => {
+    const d = dispatches[t.dIdx];
+    const y = dynamicA12(t.a12, t.k, d);
+    datasets.push({
+      label: `δ=${d} (${t.label.split(':')[0]})`,
+      data: [{x:d, y}],
+      borderColor: t.color, backgroundColor: t.color,
+      pointRadius: 8, pointStyle: 'crossRot', showLine: false,
+      borderWidth: 3
+    });
+  });
+
+  if (decayChartInst) decayChartInst.destroy();
+  decayChartInst = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{labels:{color:'#94a3b8',font:{size:10}},position:'bottom'} },
+      scales: {
+        x: { title:{display:true,text:'Dispatch Load (δ)',color:'#94a3b8'},
+             grid:{color:'#1e293b'}, ticks:{color:'#94a3b8'}, min:0, max:15 },
+        y: { title:{display:true,text:'a₁₂ = P(Avail→Sat)',color:'#94a3b8'},
+             grid:{color:'#1e293b'}, ticks:{color:'#94a3b8'}, min:0, max:1 }
+      }
+    }
+  });
+}
+
+function updateProjChart(results, dispatches) {
+  const ctx = document.getElementById('projChart');
+  const etas = []; for(let e=1;e<=50;e++) etas.push(e);
+
+  const datasets = HOSPITALS.map((h, idx) => {
+    const delta = dispatches[idx];
+    const A = buildTransitionMatrix(h.a12Base, h.k, delta);
+    const data = etas.map(e => {
+      const p = forwardProject([...h.stateVec], A, e);
+      return {x:e, y:p[0]};
+    });
+    return {
+      label: `${h.short} (δ=${delta})`,
+      data, borderColor: h.color, backgroundColor: h.color+'20',
+      borderWidth: 2, pointRadius: 0, fill: false, tension: 0.3
+    };
+  });
+
+  // Mark actual ETA positions
+  results.forEach(r => {
+    const h = HOSPITALS.find(h=>h.name===r.name);
+    datasets.push({
+      label: `${r.short} ETA`,
+      data: [{x: parseFloat(r.eta), y: r.pAvail}],
+      borderColor: h.color, backgroundColor: h.color,
+      pointRadius: 7, pointStyle: 'circle', showLine: false, borderWidth: 2
+    });
+  });
+
+  if (projChartInst) projChartInst.destroy();
+  projChartInst = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{labels:{color:'#94a3b8',font:{size:10}},position:'bottom'} },
+      scales: {
+        x: { title:{display:true,text:'ETA (minutes)',color:'#94a3b8'},
+             grid:{color:'#1e293b'}, ticks:{color:'#94a3b8'}, min:0, max:50 },
+        y: { title:{display:true,text:'P(Available at arrival)',color:'#94a3b8'},
+             grid:{color:'#1e293b'}, ticks:{color:'#94a3b8'}, min:0, max:1 }
+      }
+    }
+  });
+}
+
+// ============================================================
+// EVENT LISTENERS — Reactive on every change
+// ============================================================
+['injury','severity','d0','d1','d2','d3','d4'].forEach(id => {
+  document.getElementById(id).addEventListener('input', computeAll);
+});
+
+// Initial render
+computeAll();
+</script>
+</body>
+</html>
