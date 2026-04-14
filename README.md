@@ -19,7 +19,7 @@ Uᵢ = P(Available at arrival) × Cᵢ − λ × ETAᵢ
 **Files**
 - `Matali.ipynb` — full Colab simulation (20 calls, 7 figures)
 - `matali.py` — clean Python version
-- `matali-hidden-markov-model-simulator.html` — standalone interactive demo (Chart.js)
+- `index.html` — standalone interactive demo (Chart.js)
 
 **Key Results** (from simulation)
 - PHC saturates after ~3 dispatches; Medical College absorbs 10+
