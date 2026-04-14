@@ -10,7 +10,7 @@ Toggle injury type, severity, and dispatch load in real time - watch the HMM rou
 
 ## What is Matali?
 
-Matali is the algorithmic core of **PraanVahak** (प्राणवाहक - *Life Carrier*), an AI-powered emergency routing system designed for the Indian pre-hospital context. Given an emergency call's location, injury type, and severity, Matali computes a utility score for every reachable hospital and routes to the *optimal* one - not simply the nearest.
+Matali's Hidden Markov Model is the algorithmic core of **Mātali** (मातलि), an AI-powered emergency routing system designed for the Indian pre-hospital context. Given an emergency call's location, injury type, and severity, Matali computes a utility score for every reachable hospital and routes to the *optimal* one - not simply the nearest.
 
 The key insight: **nearest ≠ best**. A hospital 8 km away that will be saturated in 14 minutes (the ETA) is a worse choice than one 15 km away that has neurosurgery and an open ICU. Matali quantifies this using a Hidden Markov Model that predicts each hospital's state at the moment the patient would arrive.
 
