@@ -329,7 +329,7 @@ The name *Matali* (मातली) comes from the charioteer of Indra in Hindu 
 ## Author
 
 **Anirudh Gangadharan**  
-3rd MBBS · GIMS Gadag · Karnataka, India  
+3rd MBBS · Gadag Institute of Medical Sciences, Karnataka, India  
 [github.com/anirudhgangadharan](https://github.com/anirudhgangadharan)
 
 ---
