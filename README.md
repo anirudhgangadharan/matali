@@ -1,4 +1,4 @@
-# Matali — Hidden Markov Model Hospital Routing Simulator
+# Matali : Hidden Markov Model Hospital Routing Simulator
 
 **AFMC Illuminati Hackathon 2026 | Problem Statement B**  
 *Saving Seconds, Saving Lives: Affordable Innovations in Emergency Care*
