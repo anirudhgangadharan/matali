@@ -1,16 +1,16 @@
-# Matali — HMM Emergency Hospital Routing Simulator
+# Matali : Hidden Markov Model Emergency Hospital Routing Simulator
 
 > **AFMC Illuminati Hackathon 2026 · Problem Statement B**  
 > *Saving Seconds, Saving Lives: Affordable Innovations in Emergency Care*
 
 **[▶ Live Interactive Demo](https://anirudhgangadharan.github.io/matali/)**  
-Toggle injury type, severity, and dispatch load in real time — watch the HMM route and re-rank hospitals as you go.
+Toggle injury type, severity, and dispatch load in real time - watch the HMM route and re-rank hospitals as you go.
 
 ---
 
 ## What is Matali?
 
-Matali is the algorithmic core of **PraanVahak** (प्राणवाहक — *Life Carrier*), an AI-powered emergency routing system designed for the Indian pre-hospital context. Given an emergency call's location, injury type, and severity, Matali computes a utility score for every reachable hospital and routes to the *optimal* one — not simply the nearest.
+Matali is the algorithmic core of **PraanVahak** (प्राणवाहक - *Life Carrier*), an AI-powered emergency routing system designed for the Indian pre-hospital context. Given an emergency call's location, injury type, and severity, Matali computes a utility score for every reachable hospital and routes to the *optimal* one - not simply the nearest.
 
 The key insight: **nearest ≠ best**. A hospital 8 km away that will be saturated in 14 minutes (the ETA) is a worse choice than one 15 km away that has neurosurgery and an open ICU. Matali quantifies this using a Hidden Markov Model that predicts each hospital's state at the moment the patient would arrive.
 
@@ -27,7 +27,7 @@ Accident → Bystander calls → Operator dispatches → Ambulance picks up
 → Drives to nearest hospital → ER starts from zero
 ```
 
-Every handoff destroys information. The receiving ER has no advance notice, cannot pre-activate the trauma team, cannot pre-order blood. And "nearest" hospital is often wrong — a PHC with 10 beds and no ICU receives a hemorrhagic head injury it cannot handle.
+Every handoff destroys information. The receiving ER has no advance notice, cannot pre-activate the trauma team, cannot pre-order blood. And "nearest" hospital is often wrong - a PHC with 10 beds and no ICU receives a hemorrhagic head injury it cannot handle.
 
 Matali models hospital capacity as a **stochastic, time-evolving state** and routes accordingly.
 
@@ -53,11 +53,11 @@ Initial belief for a typical district hospital: $\pi_0 = [0.80, \ 0.15, \ 0.05]$
 
 ---
 
-### 2. Dynamic Transition Probability — The Core Innovation
+### 2. Dynamic Transition Probability - The Core Innovation
 
 Standard HMMs use fixed transition matrices. Matali uses a **load-dependent dynamic transition matrix**.
 
-The critical parameter is $a_{12}$ — the probability of transitioning from `Available` → `Saturated` in a single time step. As more patients are dispatched to a hospital ($\delta$ increases), $a_{12}$ must grow. Matali models this with a saturating exponential:
+The critical parameter is $a_{12}$ - the probability of transitioning from `Available` → `Saturated` in a single time step. As more patients are dispatched to a hospital ($\delta$ increases), $a_{12}$ must grow. Matali models this with a saturating exponential:
 
 $$a_{12}(\delta) = a_{12}^{\text{base}} + (1 - a_{12}^{\text{base}}) \cdot \left(1 - e^{-k \cdot \delta}\right)$$
 
@@ -112,7 +112,7 @@ Each row is renormalized to sum to 1.
 
 ---
 
-### 4. Forward Projection — Predicting State at Arrival
+### 4. Forward Projection - Predicting State at Arrival
 
 The system doesn't ask "what state is the hospital in now?" It asks: **"what state will it be in when the ambulance arrives?"**
 
@@ -120,7 +120,7 @@ Given ETA of $t$ minutes, we raise $A$ to the $t$-th power (matrix exponentiatio
 
 $$\pi_{t+\text{ETA}} = \pi_t \cdot A^{\text{ETA}}$$
 
-This is the **HMM forward algorithm** — propagating uncertainty forward in time. As ETA grows, the projected state vector shifts toward the stationary distribution of $A$, meaning distant hospitals become less predictable.
+This is the **HMM forward algorithm** - propagating uncertainty forward in time. As ETA grows, the projected state vector shifts toward the stationary distribution of $A$, meaning distant hospitals become less predictable.
 
 ```python
 def forward_project(state_vector, A, delta_t):
@@ -133,7 +133,7 @@ def forward_project(state_vector, A, delta_t):
 
 The key output is $P(\text{Available at arrival}) = \pi_{\text{ETA}}[0]$.
 
-![Fig 2: Forward projection — distance and load degrade confidence](fig2_projection.png)
+![Fig 2: Forward projection - distance and load degrade confidence](fig2_projection.png)
 
 *Fig 2: P(Available) drops as ETA increases. Under high load (d=5), even a nearby hospital looks risky.*
 
@@ -146,9 +146,9 @@ Distance and availability alone are insufficient. A PHC cannot handle a hemorrha
 | Injury | Full score (C=1.0) requires | Partial (C≈0.5) | Minimal (C≈0.1–0.2) |
 |---|---|---|---|
 | `head` | neurosurgery + CT scan + blood bank | general surgery + blood bank | general surgery only |
-| `chest` | thoracic surgery + blood bank + ICU | general surgery + ICU | — |
-| `limb` | orthopedics + blood bank | general surgery | — |
-| `cardiac` | cath lab + ICU | ICU only | — |
+| `chest` | thoracic surgery + blood bank + ICU | general surgery + ICU | - |
+| `limb` | orthopedics + blood bank | general surgery | - |
+| `cardiac` | cath lab + ICU | ICU only | - |
 
 ```python
 def capability_score(hospital, injury_type):
@@ -163,7 +163,7 @@ def capability_score(hospital, injury_type):
 
 ---
 
-### 6. Severity Penalty — Lambda (λ)
+### 6. Severity Penalty - Lambda (λ)
 
 Red triage patients cannot tolerate delay. Matali applies a **severity-weighted time penalty** $\lambda$:
 
@@ -173,11 +173,11 @@ Red triage patients cannot tolerate delay. Matali applies a **severity-weighted 
 | 🟡 Yellow (urgent) | 0.015 | Moderate time sensitivity |
 | 🟢 Green (delayed) | 0.005 | Time is less critical |
 
-This comes from the biological reality of the **golden hour** — exponential mortality risk with delay in hemorrhagic shock, STEMI, and head injury.
+This comes from the biological reality of the **golden hour** - exponential mortality risk with delay in hemorrhagic shock, STEMI, and head injury.
 
 ---
 
-### 7. Utility Function — Putting It All Together
+### 7. Utility Function - Putting It All Together
 
 The routing decision for each hospital $i$ is computed as:
 
@@ -241,9 +241,9 @@ def haversine_km(lat1, lng1, lat2, lng2):
 
 ![Fig 5: Cumulative dispatch distribution](fig5_balance.png)
 
-*Fig 5: Without HMM — all calls would go to nearest hospital. With Matali — load spreads naturally as belief in availability decays. This is emergent behavior, not explicit round-robin.*
+*Fig 5: Without HMM - all calls would go to nearest hospital. With Matali - load spreads naturally as belief in availability decays. This is emergent behavior, not explicit round-robin.*
 
-### Utility Decomposition (Call #9 — Red Head Injury)
+### Utility Decomposition (Call #9 - Red Head Injury)
 
 ![Fig 6: Why the hospital was chosen](fig6_utility.png)
 
@@ -251,9 +251,9 @@ def haversine_km(lat1, lng1, lat2, lng2):
 
 ### Severity Changes the Decision
 
-![Fig 7: Same injury, same location — different severity, different hospital](fig7_severity.png)
+![Fig 7: Same injury, same location - different severity, different hospital](fig7_severity.png)
 
-*Fig 7: A green head injury can be routed to District Hospital (shorter ETA, lower penalty). A red head injury must go to a Tier 1 center despite the distance — the λ term shifts the entire ranking.*
+*Fig 7: A green head injury can be routed to District Hospital (shorter ETA, lower penalty). A red head injury must go to a Tier 1 center despite the distance - the λ term shifts the entire ranking.*
 
 ---
 
@@ -271,7 +271,7 @@ pip install numpy matplotlib
 python matali.py
 ```
 
-Or open `Matali.ipynb` in [Google Colab](https://colab.research.google.com) — no setup required.
+Or open `Matali.ipynb` in [Google Colab](https://colab.research.google.com) - no setup required.
 
 For the interactive browser demo: open `index.html` directly, or visit the [live GitHub Pages link](https://anirudhgangadharan.github.io/matali/).
 
@@ -316,13 +316,13 @@ The model parameters are grounded in established emergency medicine principles:
 
 ## Background & Context
 
-Matali was built in ~48 hours for the **AFMC Illuminati Hackathon 2026** (Problem B: Affordable Emergency Care Innovation). It is the routing engine for **PraanVahak** — a broader system that adds:
+Matali was built in ~48 hours for the **AFMC Illuminati Hackathon 2026** (Problem B: Affordable Emergency Care Innovation). It is the routing engine for **PraanVahak** - a broader system that adds:
 
 - WhatsApp/toll-free voice interface (Twilio + Whisper ASR)
 - Bystander-side CV vitals estimation (HemoglobinAI pipeline)
 - Structured ER handoff delivery (pre-arrival patient profile)
 
-The name *Matali* (मातली) comes from the charioteer of Indra in Hindu mythology — known for navigating across the three worlds without hesitation.
+The name *Matali* (मातली) comes from the charioteer of Indra in Hindu mythology - known for navigating across the three worlds without hesitation.
 
 ---
 
